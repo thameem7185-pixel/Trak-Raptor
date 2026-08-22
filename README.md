@@ -1,76 +1,165 @@
-# TechAurix Command Deck — APK build
+# TechAurix Command Deck
 
-This repo wraps `techaurix-app.html` (the arm/cam/drive command deck) in a
-minimal Android WebView app and builds it into an installable `.apk` using
-GitHub Actions — no Android Studio and no PC required.
+A browser-based control interface for a multi-module ESP32 robotics rig —
+robotic arm, BLDC drill, drive base, live camera, and thermal/gas
+sensing — packaged both as a static web app and as a sideloadable Android
+APK.
+
+Built for phone/Chromebook-only workflows: no PC, no Android Studio, no
+desk-bound setup. Everything from editing to building the APK happens
+through the browser or GitHub Codespaces.
+
+---
+
+## What it does
+
+The command deck is a single-page HTML/CSS/JS app split into three panels:
+
+| Panel | Control | Behavior |
+|---|---|---|
+| **Left — Arm** | Joystick (base + elbow), sliders (shoulder/wrist/grip), drill slider | Push the stick forward → elbow servo moves forward; pull back → it retracts. Left/right on the stick rotates the base, the same way the drive stick steers. Shoulder, wrist, and grip get individual sliders since one stick can't drive 5 axes at once. |
+| **Center — Camera** | Live MJPEG feed, thermal overlay toggle, snapshot | Full-size video feed from the cam module, with an 8×8 thermal grid overlay and live MQ2 smoke / thermal-peak gauges underneath. |
+| **Right — Drive** | Joystick (X = turn, Y = forward/back) | Standard tank-style two-axis stick for the drive base. |
+
+A dedicated **BLDC EMERGENCY STOP** button zeros the drill and returns the
+arm to its home position (90°/90°) instantly, independent of network
+latency to any one module.
+
+The layout is a responsive 3-column grid on wide screens (Chromebook,
+laptop, desktop) that collapses to a single scrolling column — camera
+pinned to the top — on narrow or portrait phones.
+
+Node discovery (mDNS hostnames like `armcam.local`, manual IP entry, or a
+subnet scan fallback) is handled through a **Link Setup** modal, opened via
+the gear icon or any of the node status chips in the header.
+
+---
+
+## Architecture (hardware side — being confirmed)
+
+The web app expects up to **4 independent network nodes**, each with its
+own HTTP/WebSocket server:
+
+| Node | Confirmed role | Talks to the app via |
+|---|---|---|
+| `cam` | ESP32-CAM — video stream | `GET /stream` (MJPEG) |
+| `arm` | Arm servos + BLDC drill | WebSocket — `{axis, value}` per joint, `{estop:true}` |
+| `drive` | Drive base motors | WebSocket — `{x, y}` |
+| `sensors` | Thermal array + MQ2 smoke | `GET /sensors` (polled every 600ms) |
+
+> ⚠️ **Not yet finalized.** The exact module split (e.g. whether drive and
+> arm share one ESP32 or are separate, and which board owns the BLDC
+> driver) is being confirmed against the actual firmware. This table — and
+> the JS in `techaurix-app.html` that calls `sendWs('arm', …)` /
+> `sendWs('drive', …)` — will be updated once the firmware is shared and
+> checked against it.
+
+Each node is configured independently in the Link Setup modal: mDNS
+hostname, manual IP, or discovered via subnet scan. Connection state per
+node shows live in the header chips (DRV / ARM / CAM / SNS) with an RSSI
+bar.
+
+---
+
+## Repository structure
 
 ```
-techaurix-android/
-├── index.html                  ← same web app, for optional GitHub Pages hosting
-├── android/                    ← the Android WebView wrapper project
-│   └── app/src/main/assets/techaurix-app.html   ← the app bundled offline
-└── .github/workflows/build-apk.yml              ← builds the APK on every push
+.
+├── index.html                          # web app (GitHub Pages-hostable)
+├── android/                            # Android WebView wrapper project
+│   ├── build.gradle
+│   ├── settings.gradle
+│   ├── gradle.properties
+│   └── app/
+│       ├── build.gradle
+│       └── src/main/
+│           ├── AndroidManifest.xml
+│           ├── assets/techaurix-app.html   # app bundled offline in the APK
+│           ├── java/com/techaurix/commanddeck/MainActivity.kt
+│           └── res/                        # icon, theme, network config
+└── .github/workflows/build-apk.yml     # auto-builds the APK on every push
 ```
 
-## 1. Push this to GitHub (from Chromebook/phone, no git needed)
+---
 
-1. Go to https://github.com/new and create a repo, e.g. `techaurix-command-deck`
-   (public or private, doesn't matter — Actions works either way).
-2. Open the new repo → **Add file → Upload files**.
-3. On your Chromebook, open the Files app, select **everything inside this
-   `techaurix-android` folder** (including the hidden `.github` folder — you
-   may need to drag it in separately since some browsers hide dotfolders),
-   and drag it into the GitHub upload box. GitHub preserves the folder
-   structure automatically.
-4. Commit directly to `main`.
+## Running it as a web app
 
-   *(Alternative if drag-and-drop misses `.github`: open
-   `.github/workflows/build-apk.yml` here, then on GitHub use
-   **Add file → Create new file**, type the path
-   `.github/workflows/build-apk.yml` in the name field — GitHub auto-creates
-   the folders — and paste the contents in.)*
+No build step. Either:
+- Open `index.html` directly (works offline, minus the live feed/sensor
+  data which need the ESP32 nodes reachable on the same network), or
+- Host it on **GitHub Pages**: repo → Settings → Pages → Deploy from
+  branch → `main` / root.
 
-## 2. Let Actions build the APK
+---
 
-1. On GitHub, open the **Actions** tab. A "Build APK" run should already be
-   in progress (triggered by your push to `main`).
-2. Wait for the green checkmark (first run takes a few minutes — later runs
-   are faster).
-3. Click into the finished run → scroll to **Artifacts** →
-   download `techaurix-debug-apk.zip` → unzip it → you have `app-debug.apk`.
+## Building the Android APK
 
-## 3. (Optional) Get a proper Release instead of a build artifact
+The APK is built entirely by GitHub Actions — no local Android SDK needed.
 
-Artifacts expire after 90 days. For a permanent download link:
+1. Push this repo to GitHub (see below for doing this from a Chromebook via
+   Codespaces, with zero local git setup required beforehand).
+2. GitHub Actions (`.github/workflows/build-apk.yml`) runs automatically on
+   every push to `main`:
+   - Sets up JDK 17 + Android SDK + Gradle
+   - Runs `gradle assembleDebug` inside `android/`
+   - Uploads `app-debug.apk` as a workflow artifact
+3. Pushing a tag like `v1.0` additionally attaches the APK to a GitHub
+   Release, giving you a permanent download link instead of a 90-day
+   artifact.
 
-1. On GitHub, go to **Releases → Draft a new release**.
-2. Create a new tag like `v1.0` and publish it.
-3. The same workflow re-runs, and because the tag matches `v*`, it attaches
-   `app-debug.apk` directly to that Release page — a stable link you can
-   share or bookmark on your phone.
+### From a Chromebook, using GitHub Codespaces
 
-## 4. Install on your phone
+```bash
+# after uploading techaurix-android.zip into the Codespace file explorer:
+unzip techaurix-android.zip
 
-1. Download the APK on your Android phone (from the Release page or the
-   Actions artifact).
-2. Open it — Android will prompt to allow installs from that source
-   (Chrome/Files) the first time. Approve it, then install.
-3. Launch **TechAurix** — it loads the command deck from the bundled HTML
-   file, so it works even without internet, as long as your phone is on the
-   same Wi-Fi as the arm/drive/cam/sensor ESP32 modules.
+shopt -s dotglob
+mv techaurix-android/* .
+rmdir techaurix-android
+shopt -u dotglob
 
-## Notes
+rm techaurix-android.zip
 
-- This is a **debug-signed** APK — perfectly fine for installing on your own
-  device, but Android will always show it as coming from an unverified
-  developer. That's expected and fine for personal use.
-- `network_security_config.xml` explicitly allows cleartext HTTP, since your
-  ESP32 modules serve plain HTTP/WS on the local network, not HTTPS.
-- If `armcam.local` style mDNS names don't resolve from inside the app later,
-  that's the known Android WebView limitation you'd already been looking
-  into — the fix is adding an `NsdManager`-based resolver in `MainActivity.kt`
-  and exposing it to the page via a `WebView.addJavascriptInterface()`
-  bridge. Happy to build that out next if mDNS resolution turns out to be
-  flaky from inside the APK.
-- To change the app name or package id, edit `applicationId`/`namespace` in
-  `android/app/build.gradle` and `android/app/src/main/AndroidManifest.xml`.
+git add .
+git commit -m "Add TechAurix command deck APK build (WebView + GitHub Actions)"
+git push origin main
+```
+
+Then check the **Actions** tab on the repo — the build runs automatically.
+
+### Installing on your phone
+
+Download `app-debug.apk` from the Actions artifact or the Release page,
+open it on your phone, allow install from that source when prompted, and
+install. The app loads the command deck from the bundled HTML — it doesn't
+need internet, only Wi-Fi on the same LAN as the ESP32 modules.
+
+---
+
+## Notes & known limitations
+
+- **Debug-signed only.** Fine for personal sideloading; Android will always
+  flag it as an unverified developer since it isn't signed with a release
+  key.
+- **Cleartext HTTP is intentionally allowed** (`network_security_config.xml`)
+  since the ESP32 modules serve plain HTTP/WS, not HTTPS.
+- **mDNS resolution (`*.local` hostnames) inside the WebView is unverified.**
+  Android's WebView networking stack doesn't reliably resolve mDNS the way
+  a normal browser tab does. If `armcam.local`-style names fail from inside
+  the APK, the fix is an `NsdManager`-based resolver in `MainActivity.kt`
+  exposed to the page through `WebView.addJavascriptInterface()` — not yet
+  implemented, planned once this is confirmed to be an actual problem.
+- **Firmware/module mapping is provisional** — see the Architecture section
+  above.
+
+---
+
+## Roadmap
+
+- [ ] Confirm ESP32 module split and firmware endpoints against actual
+      hardware
+- [ ] Add `NsdManager` JS bridge if mDNS resolution proves unreliable
+      in-app
+- [ ] Release-sign the APK once the app is stable
+- [ ] Optional: PWA manifest for "Add to Home Screen" as a lighter
+      alternative to the APK on devices where sideloading is inconvenient
