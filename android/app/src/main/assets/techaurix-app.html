@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TECH AURIX // Command Deck</title>
+<style>
+  :root{
+    --void:#080b10;
+    --panel:#10161f;
+    --panel-2:#151d29;
+    --line:#233043;
+    --blue:#00d9ff;
+    --blue-dim:#0a3a4a;
+    --orange:#ff6a1a;
+    --orange-dim:#4a2508;
+    --text:#e8f1f7;
+    --dim:#5c7080;
+    --danger:#ff2d55;
+    --success:#29ffa0;
+    --font-d:'Segoe UI Semibold','Rajdhani','Arial Narrow',sans-serif;
+    --font-m:'Consolas','Share Tech Mono','Courier New',monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--void); color:var(--text);
+    font-family:var(--font-m);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:34px 34px;
+    background-attachment:fixed;
+    overflow-x:hidden;
+    padding-bottom:12px;
+  }
+  /* ---------- TOP BAR ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px; background:linear-gradient(180deg, #0c1119ee, #0c1119cc);
+    border-bottom:1px solid var(--line); backdrop-filter:blur(6px);
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .core{
+    width:30px; height:30px; border-radius:50%;
+    border:2px solid var(--blue); position:relative;
+    box-shadow:0 0 10px var(--blue), inset 0 0 8px var(--blue);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  .brand .core::after{
+    content:''; position:absolute; inset:6px; border-radius:50%; background:var(--blue);
+    filter:blur(1px); opacity:.85;
+  }
+  @keyframes pulse{
+    0%,100%{box-shadow:0 0 6px var(--blue), inset 0 0 4px var(--blue);}
+    50%{box-shadow:0 0 18px var(--blue), inset 0 0 10px var(--blue);}
+  }
+  .core.link-degraded{border-color:var(--orange);}
+  .core.link-degraded::after{background:var(--orange);}
+  .core.link-down{border-color:var(--danger); animation:none;}
+  .core.link-down::after{background:var(--danger);}
+  .brand h1{font-family:var(--font-d); font-size:17px; letter-spacing:3px; margin:0; font-weight:700;}
+  .brand h1 span{color:var(--orange);}
+  .brand small{display:block; color:var(--dim); font-size:9px; letter-spacing:2px; margin-top:1px;}
+
+  .nodes{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;}
+  .node-chip{
+    display:flex; align-items:center; gap:5px; padding:5px 8px;
+    background:var(--panel); border:1px solid var(--line); border-radius:3px;
+    font-size:9px; letter-spacing:1px; color:var(--dim); cursor:pointer;
+  }
+  .node-chip .dot{width:6px; height:6px; border-radius:50%; background:var(--dim);}
+  .node-chip.ok{color:var(--text); border-color:var(--blue-dim);}
+  .node-chip.ok .dot{background:var(--success); box-shadow:0 0 5px var(--success);}
+  .node-chip.bad .dot{background:var(--danger); box-shadow:0 0 5px var(--danger);}
+  .node-chip .rssi{display:flex; align-items:flex-end; gap:1px; height:9px; margin-left:2px;}
+  .node-chip .rssi i{width:2px; background:var(--dim); display:block;}
+  .node-chip .rssi i:nth-child(1){height:3px;} .node-chip .rssi i:nth-child(2){height:5px;}
+  .node-chip .rssi i:nth-child(3){height:7px;} .node-chip .rssi i:nth-child(4){height:9px;}
+  .node-chip.ok .rssi i{background:var(--blue);}
+
+  /* ---------- LAYOUT ---------- */
+  main{padding:10px; max-width:1500px; margin:0 auto;}
+
+  /* three-column command deck: ARM (left, joystick) / CAMERA (center, large) / DRIVE (right, joystick) */
+  .command-grid{
+    display:grid;
+    grid-template-columns: minmax(260px,1fr) minmax(340px,1.6fr) minmax(260px,1fr);
+    gap:14px;
+    align-items:start;
+  }
+  .col-arm, .col-cam, .col-drive{display:flex; flex-direction:column; min-width:0;}
+  .col-cam{align-items:stretch;}
+
+  /* stacked fallback for narrow phones in portrait */
+  @media (max-width:820px), (orientation:portrait){
+    .command-grid{grid-template-columns:1fr;}
+    .col-cam{order:-1;}
+  }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:6px;
+    padding:10px; margin-bottom:10px; position:relative;
+  }
+  .panel-title{
+    font-family:var(--font-d); font-size:11px; letter-spacing:2px; color:var(--dim);
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
+    text-transform:uppercase;
+  }
+  .panel-title .tag{color:var(--blue); font-size:9px;}
+
+  /* video */
+  .viewport{
+    position:relative; width:100%; aspect-ratio:4/3; background:#000;
+    border-radius:4px; overflow:hidden; border:1px solid var(--line);
+  }
+  .viewport img{width:100%; height:100%; object-fit:cover; display:block;}
+  .viewport .noSignal{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:6px; color:var(--dim); font-size:11px; letter-spacing:2px;
+  }
+  .viewport .noSignal .glyph{font-size:26px; color:var(--line);}
+  .thermal-overlay{
+    position:absolute; top:6px; right:6px; width:22%; height:22%; min-width:80px; min-height:80px;
+    display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
+    border:1px solid var(--blue-dim); border-radius:3px; overflow:hidden; opacity:.92;
+    box-shadow:0 0 12px #000a;
+  }
+  .thermal-overlay div{width:100%; height:100%;}
+  .viewport-controls{
+    position:absolute; bottom:8px; left:8px; right:8px; display:flex; justify-content:space-between; gap:6px;
+  }
+  .mini-btn{
+    background:#000000aa; border:1px solid var(--line); color:var(--text);
+    font-family:var(--font-m); font-size:10px; padding:6px 10px; border-radius:3px; letter-spacing:1px;
+  }
+  .mini-btn.active{border-color:var(--blue); color:var(--blue);}
+
+  /* gauges row */
+  .gauges{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+  .gauge{
+    flex:1; background:var(--panel-2); border:1px solid var(--line); border-radius:4px;
+    padding:8px; text-align:center;
+  }
+  .gauge .label{font-size:9px; letter-spacing:1px; color:var(--dim);}
+  .gauge .val{font-family:var(--font-d); font-size:22px; font-weight:700; margin-top:2px;}
+  .gauge .unit{font-size:9px; color:var(--dim);}
+  .gauge.warn .val{color:var(--orange);}
+  .gauge.crit .val{color:var(--danger); animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.35;}}
+  .bar-track{height:4px; background:#000; border-radius:2px; margin-top:6px; overflow:hidden;}
+  .bar-fill{height:100%; background:var(--blue); width:0%; transition:width .3s;}
+
+  /* link setup trigger (header) */
+  .link-btn{
+    display:flex; align-items:center; gap:5px; padding:5px 9px;
+    background:var(--panel); border:1px solid var(--line); border-radius:3px;
+    font-size:9px; letter-spacing:1px; color:var(--blue); font-family:var(--font-d); cursor:pointer;
+  }
+
+  /* modal overlay for link setup */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:#03050ae0; z-index:200;
+    align-items:center; justify-content:center; padding:16px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal-box{
+    width:100%; max-width:480px; max-height:88vh; overflow-y:auto;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px;
+    box-shadow:0 0 40px #000c;
+  }
+  .modal-close{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    font-size:11px; padding:6px 10px; border-radius:3px; letter-spacing:1px; float:right;
+  }
+
+  /* joysticks */
+  .stick-row{display:flex; justify-content:space-around; gap:12px; padding:6px 0 2px;}
+  .stick-wrap{text-align:center;}
+  .stick-label{font-size:12px; letter-spacing:2px; color:var(--dim); margin-bottom:10px;}
+  .stick-base{
+    width:min(280px,80vw); height:min(280px,80vw); border-radius:50%; background:var(--panel-2);
+    border:1px solid var(--line); position:relative; touch-action:none;
+    box-shadow:inset 0 0 20px #000a;
+  }
+  .stick-base::before{
+    content:''; position:absolute; inset:0; border-radius:50%;
+    border:1px dashed var(--line); margin:14px;
+  }
+  .stick-knob{
+    width:15%; height:15%; min-width:56px; min-height:56px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #1c2836, #0a0f16);
+    border:2px solid var(--blue); position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%); box-shadow:0 0 14px var(--blue-dim);
+  }
+  .stick-readout{margin-top:10px; font-size:13px; color:var(--dim);}
+  .stick-readout b{color:var(--blue);}
+  .stick-base.small{width:min(190px,70vw); height:min(190px,70vw);}
+
+  /* compact sliders for secondary arm axes (shoulder/wrist/grip) */
+  .axis-row.compact{margin-bottom:14px;}
+  .axis-row.compact .axis-label{width:56px; font-size:11px;}
+  .axis-row.compact input[type=range]::-webkit-slider-thumb{width:24px; height:24px;}
+  .axis-row.compact .axis-val{width:40px; font-size:12px;}
+  .sub-heading{
+    font-size:10px; letter-spacing:2px; color:var(--dim); margin:14px 0 10px;
+    padding-top:10px; border-top:1px dashed var(--line); text-transform:uppercase;
+  }
+
+  /* sliders */
+  .axis-row{display:flex; align-items:center; gap:14px; margin-bottom:20px;}
+  .axis-row .axis-label{width:64px; font-size:13px; letter-spacing:1px; color:var(--dim); flex-shrink:0;}
+  .axis-row input[type=range]{flex:1; -webkit-appearance:none; height:8px; background:var(--line); border-radius:4px; outline:none;}
+  .axis-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:32px; height:32px; border-radius:50%;
+    background:var(--blue); box-shadow:0 0 8px var(--blue); border:2px solid #01202a;
+  }
+  .axis-row .axis-val{width:48px; text-align:right; font-size:14px; color:var(--text);}
+  .axis-row.drill input[type=range]::-webkit-slider-thumb{background:var(--orange); box-shadow:0 0 8px var(--orange);}
+
+  .estop{
+    width:100%; padding:22px; margin-top:6px; border-radius:6px; border:1px solid var(--danger);
+    background:linear-gradient(180deg,#2a0812,#1a0510); color:var(--danger); font-family:var(--font-d);
+    font-size:18px; letter-spacing:4px; font-weight:700;
+  }
+  .estop:active{background:var(--danger); color:#000;}
+
+  /* discovery panel */
+  .disc-row{display:flex; gap:6px; align-items:center; margin-bottom:6px;}
+  .disc-row .name{width:70px; font-size:10px; color:var(--dim); letter-spacing:1px;}
+  .disc-row input{
+    flex:1; background:var(--void); border:1px solid var(--line); color:var(--text);
+    font-family:var(--font-m); font-size:11px; padding:6px 8px; border-radius:3px;
+  }
+  .disc-row button{
+    background:var(--panel-2); border:1px solid var(--blue-dim); color:var(--blue);
+    font-size:10px; padding:6px 10px; border-radius:3px; letter-spacing:1px;
+  }
+  .disc-row .state{width:52px; font-size:9px; text-align:center; letter-spacing:1px;}
+  .disc-row .state.ok{color:var(--success);}
+  .disc-row .state.bad{color:var(--danger);}
+  .disc-row .state.pending{color:var(--orange);}
+  .log{
+    font-size:9.5px; color:var(--dim); max-height:70px; overflow-y:auto; margin-top:6px;
+    border-top:1px solid var(--line); padding-top:6px; line-height:1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="core" id="coreRing"></div>
+    <div>
+      <h1>TECH <span>AURIX</span></h1>
+      <small>MULTI-MODULE COMMAND DECK</small>
+    </div>
+  </div>
+  <div class="nodes">
+    <div class="node-chip" id="chipDrive" onclick="openLinkModal()">
+      <span class="dot"></span>DRV
+      <span class="rssi"><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="node-chip" id="chipArm" onclick="openLinkModal()">
+      <span class="dot"></span>ARM
+      <span class="rssi"><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="node-chip" id="chipCam" onclick="openLinkModal()">
+      <span class="dot"></span>CAM
+      <span class="rssi"><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="node-chip" id="chipSensors" onclick="openLinkModal()">
+      <span class="dot"></span>SNS
+      <span class="rssi"><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="link-btn" onclick="openLinkModal()">&#9881; LINK SETUP</div>
+  </div>
+</header>
+
+<main>
+  <div class="command-grid">
+
+    <!-- LEFT: ROBOTIC ARM CONTROLLER — joystick-driven, like the DRIVE model -->
+    <div class="col-arm">
+      <div class="panel">
+        <div class="panel-title">ROBOTIC ARM // 5-DOF <span class="tag" id="armTag">ARM // NO LINK</span></div>
+        <div class="stick-row">
+          <div class="stick-wrap">
+            <div class="stick-label">BASE (TURN) / ELBOW (FWD-BACK)</div>
+            <div class="stick-base small" id="armStickBase">
+              <div class="stick-knob" id="armStickKnob"></div>
+            </div>
+            <div class="stick-readout">BASE <b id="armBaseVal">90&deg;</b>&nbsp; ELBOW <b id="armElbowVal">90&deg;</b></div>
+          </div>
+        </div>
+
+        <div class="sub-heading">SHOULDER / WRIST / GRIP</div>
+        <div class="axis-row compact"><div class="axis-label">SHLDR</div><input type="range" min="0" max="180" value="90" data-axis="j2"><div class="axis-val">90</div></div>
+        <div class="axis-row compact"><div class="axis-label">WRIST</div><input type="range" min="0" max="180" value="90" data-axis="j4"><div class="axis-val">90</div></div>
+        <div class="axis-row compact"><div class="axis-label">GRIP</div><input type="range" min="0" max="180" value="90" data-axis="j5"><div class="axis-val">90</div></div>
+
+        <div class="sub-heading">BLDC DRILL (UNCHANGED)</div>
+        <div class="axis-row drill"><div class="axis-label">DRILL</div><input type="range" min="0" max="100" value="0" data-axis="drill"><div class="axis-val">0%</div></div>
+        <button class="estop" id="estopBtn">BLDC EMERGENCY STOP</button>
+      </div>
+    </div>
+
+    <!-- CENTER: LIVE CAMERA (small, 5x5cm) + TELEMETRY -->
+    <div class="col-cam">
+      <div class="panel">
+        <div class="panel-title">LIVE FEED <span class="tag" id="camTag">CAM // NO LINK</span></div>
+        <div class="viewport" id="viewport">
+          <img id="streamImg" style="display:none;">
+          <div class="noSignal" id="noSignal">
+            <div class="glyph">&#8982;</div>
+            <div>NO VIDEO SIGNAL</div>
+          </div>
+          <div class="thermal-overlay" id="thermalOverlay" style="display:none;"></div>
+          <div class="viewport-controls">
+            <button class="mini-btn active" id="btnThermal" onclick="toggleThermal()">THERMAL</button>
+            <button class="mini-btn" id="btnSnap">SNAPSHOT</button>
+          </div>
+        </div>
+        <div class="gauges">
+          <div class="gauge" id="gaugeSmoke">
+            <div class="label">MQ2 SMOKE</div>
+            <div class="val" id="smokeVal">--</div>
+            <div class="unit">PPM (EST)</div>
+            <div class="bar-track"><div class="bar-fill" id="smokeBar"></div></div>
+          </div>
+          <div class="gauge">
+            <div class="label">THERMAL PEAK</div>
+            <div class="val" id="thermalPeak">--</div>
+            <div class="unit">&deg;C</div>
+            <div class="bar-track"><div class="bar-fill" id="thermalBar"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: DRIVE / FORWARD-BACKWARD MOVEMENT CONTROL (large) -->
+    <div class="col-drive">
+      <div class="panel">
+        <div class="panel-title">DRIVE // 4x DC GEAR MOTOR <span class="tag" id="driveTag">DRV // NO LINK</span></div>
+        <div class="stick-row">
+          <div class="stick-wrap">
+            <div class="stick-label">FORWARD / BACK / TURN</div>
+            <div class="stick-base" id="driveStickBase">
+              <div class="stick-knob" id="driveStickKnob"></div>
+            </div>
+            <div class="stick-readout">X <b id="driveX">0.00</b>&nbsp; Y <b id="driveY">0.00</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- LINK SETUP MODAL -->
+<div class="modal-overlay" id="linkModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeLinkModal()">CLOSE &times;</button>
+    <div class="panel-title" style="margin-top:4px;">AUTO-DISCOVERY <span class="tag" id="discStatusTag">SCANNING...</span></div>
+    <div class="disc-row">
+      <div class="name">DRIVE</div>
+      <input type="text" id="ipDrive" placeholder="techaurix-drive.local or 192.168.x.x">
+      <button onclick="manualConnect('drive')">SET</button>
+      <div class="state" id="stateDrive">--</div>
+    </div>
+    <div class="disc-row">
+      <div class="name">ARM</div>
+      <input type="text" id="ipArm" placeholder="techaurix-arm.local or 192.168.x.x">
+      <button onclick="manualConnect('arm')">SET</button>
+      <div class="state" id="stateArm">--</div>
+    </div>
+    <div class="disc-row">
+      <div class="name">CAM</div>
+      <input type="text" id="ipCam" placeholder="techaurix-cam.local or 192.168.x.x">
+      <button onclick="manualConnect('cam')">SET</button>
+      <div class="state" id="stateCam">--</div>
+    </div>
+    <div class="disc-row">
+      <div class="name">SENSORS</div>
+      <input type="text" id="ipSensors" placeholder="techaurix-sensors.local or 192.168.x.x">
+      <button onclick="manualConnect('sensors')">SET</button>
+      <div class="state" id="stateSensors">--</div>
+    </div>
+    <div class="disc-row">
+      <div class="name">SUBNET</div>
+      <input type="text" id="subnetBase" placeholder="192.168.1 (for scan fallback)">
+      <button onclick="scanSubnet()">SCAN</button>
+      <div class="state" id="stateScan">--</div>
+    </div>
+    <button class="mini-btn" style="width:100%; padding:9px; margin-top:6px;" onclick="rediscoverAll()">RE-RUN mDNS DISCOVERY</button>
+    <div class="log" id="discLog"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   TECH AURIX — CONTROL LOGIC
+   Discovery strategy (in order):
+   1. mDNS hostname fetch: http://techaurix-<node>.local/ping
+      (works if the OS/WebView resolver supports mDNS — most
+      Android WebViews do via the system resolver if a
+      mDNS/NSD service is running; not guaranteed on all ROMs)
+   2. Cached last-known IP (localStorage) — fast reconnect
+   3. Manual IP entry (Link Setup tab)
+   4. Optional subnet sweep (user supplies e.g. 192.168.1)
+   ========================================================= */
+
+const NODES = {
+  drive: {host:'techaurix-drive.local', port:80, wsPort:81, ip:null, ws:null, status:'down', rssi:0},
+  arm:   {host:'techaurix-arm.local',   port:80, wsPort:81, ip:null, ws:null, status:'down', rssi:0},
+  cam:   {host:'techaurix-cam.local',   port:80, streamPort:81, ip:null, status:'down', rssi:0},
+  sensors: {host:'techaurix-sensors.local', port:80, ip:null, status:'down', rssi:0}
+};
+
+function log(msg){
+  const el = document.getElementById('discLog');
+  const t = new Date().toLocaleTimeString();
+  el.innerHTML = `[${t}] ${msg}<br>` + el.innerHTML;
+}
+
+function baseUrl(node, port){
+  const n = NODES[node];
+  const host = n.ip || n.host;
+  return `http://${host}:${port}`;
+}
+
+async function pingNode(node, host){
+  try{
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 900);
+    const res = await fetch(`http://${host}:${NODES[node].port}/ping`, {signal: ctrl.signal, cache:'no-store'});
+    clearTimeout(t);
+    if(res.ok) return true;
+  }catch(e){}
+  return false;
+}
+
+async function discoverNode(node){
+  setState(node, 'pending');
+  const n = NODES[node];
+  // 1. try mDNS hostname
+  if(await pingNode(node, n.host)){
+    n.ip = n.host;
+    localStorage.setItem('aurix_'+node, n.host);
+    log(`${node.toUpperCase()} resolved via mDNS (${n.host})`);
+    connectNode(node);
+    return;
+  }
+  // 2. try cached IP
+  const cached = localStorage.getItem('aurix_'+node);
+  if(cached && await pingNode(node, cached)){
+    n.ip = cached;
+    log(`${node.toUpperCase()} reconnected via cached address (${cached})`);
+    connectNode(node);
+    return;
+  }
+  log(`${node.toUpperCase()} not found via mDNS or cache — enter IP manually in Link Setup`);
+  setState(node, 'bad');
+}
+
+async function manualConnect(node){
+  const val = document.getElementById('ip'+node.charAt(0).toUpperCase()+node.slice(1)).value.trim();
+  if(!val) return;
+  setState(node, 'pending');
+  if(await pingNode(node, val)){
+    NODES[node].ip = val;
+    localStorage.setItem('aurix_'+node, val);
+    log(`${node.toUpperCase()} linked manually (${val})`);
+    connectNode(node);
+  }else{
+    log(`${node.toUpperCase()} manual address unreachable (${val})`);
+    setState(node, 'bad');
+  }
+}
+
+async function scanSubnet(){
+  const base = document.getElementById('subnetBase').value.trim();
+  if(!base){ log('Enter a subnet base like 192.168.1'); return; }
+  document.getElementById('stateScan').textContent = 'SCAN..';
+  document.getElementById('stateScan').className = 'state pending';
+  log(`Sweeping ${base}.1–254 (this may take a moment)...`);
+  const targets = ['drive','arm','cam','sensors'].filter(n => NODES[n].status !== 'ok');
+  let found = 0;
+  const batch = 24;
+  for(let start=1; start<=254; start+=batch){
+    const promises = [];
+    for(let i=start; i<Math.min(start+batch,255); i++){
+      const ip = `${base}.${i}`;
+      promises.push((async()=>{
+        for(const node of targets){
+          if(NODES[node].status==='ok') continue;
+          if(await pingNode(node, ip)){
+            NODES[node].ip = ip;
+            localStorage.setItem('aurix_'+node, ip);
+            log(`${node.toUpperCase()} found at ${ip} via subnet scan`);
+            connectNode(node);
+            found++;
+          }
+        }
+      })());
+    }
+    await Promise.all(promises);
+  }
+  document.getElementById('stateScan').textContent = found ? `+${found}` : 'NONE';
+  document.getElementById('stateScan').className = 'state ' + (found ? 'ok' : 'bad');
+}
+
+function setState(node, state){
+  NODES[node].status = state;
+  const el = document.getElementById('state'+node.charAt(0).toUpperCase()+node.slice(1));
+  if(el){ el.textContent = state==='ok'?'LINKED':state==='pending'?'...':'OFFLINE'; el.className='state '+ (state==='ok'?'ok':state==='pending'?'pending':'bad'); }
+  const chip = document.getElementById('chip'+node.charAt(0).toUpperCase()+node.slice(1));
+  if(chip) chip.className = 'node-chip ' + (state==='ok'?'ok':state==='pending'?'':'bad');
+  const tag = document.getElementById(node+'Tag');
+  if(tag) tag.textContent = node.toUpperCase() + (state==='ok' ? ' // LINKED' : ' // NO LINK');
+  updateCoreRing();
+}
+
+function updateCoreRing(){
+  const states = ['drive','arm','cam','sensors'].map(n=>NODES[n].status);
+  const ring = document.getElementById('coreRing');
+  if(states.every(s=>s==='ok')) ring.className='core';
+  else if(states.some(s=>s==='ok')) ring.className='core link-degraded';
+  else ring.className='core link-down';
+}
+
+function connectNode(node){
+  setState(node, 'ok');
+  if(node==='cam'){
+    startStream();
+  }else if(node==='sensors'){
+    startSensorPoll();
+  }else{
+    openWs(node);
+  }
+  pollRssi(node);
+}
+
+function openWs(node){
+  const n = NODES[node];
+  if(n.ws) try{ n.ws.close(); }catch(e){}
+  const url = `ws://${n.ip}:${n.wsPort}/`;
+  try{
+    const ws = new WebSocket(url);
+    ws.onopen = ()=> log(`${node.toUpperCase()} WebSocket open`);
+    ws.onclose = ()=>{ setState(node,'bad'); log(`${node.toUpperCase()} WebSocket closed`); };
+    ws.onerror = ()=> log(`${node.toUpperCase()} WebSocket error`);
+    n.ws = ws;
+  }catch(e){ log(`${node.toUpperCase()} WS connect failed`); }
+}
+
+function sendWs(node, obj){
+  const n = NODES[node];
+  if(n.ws && n.ws.readyState===1) n.ws.send(JSON.stringify(obj));
+}
+
+async function pollRssi(node){
+  const n = NODES[node];
+  if(n.status!=='ok') return;
+  try{
+    const res = await fetch(`${baseUrl(node,n.port)}/status`, {cache:'no-store'});
+    const data = await res.json();
+    n.rssi = data.rssi ?? n.rssi;
+    updateRssiChip(node, n.rssi);
+  }catch(e){
+    setState(node,'bad');
+    return;
+  }
+  setTimeout(()=>pollRssi(node), 3000);
+}
+
+function updateRssiChip(node, rssi){
+  const chip = document.getElementById('chip'+node.charAt(0).toUpperCase()+node.slice(1));
+  if(!chip) return;
+  const bars = chip.querySelectorAll('.rssi i');
+  let level = rssi > -55 ? 4 : rssi > -65 ? 3 : rssi > -75 ? 2 : 1;
+  bars.forEach((b,i)=> b.style.opacity = i < level ? 1 : 0.25);
+}
+
+async function rediscoverAll(){
+  document.getElementById('discStatusTag').textContent = 'SCANNING...';
+  await Promise.all(['drive','arm','cam','sensors'].map(discoverNode));
+  document.getElementById('discStatusTag').textContent = 'SCAN COMPLETE';
+}
+
+// ---------- VIDEO STREAM ----------
+function startStream(){
+  const img = document.getElementById('streamImg');
+  img.src = `http://${NODES.cam.ip}:${NODES.cam.streamPort}/stream?ts=${Date.now()}`;
+  img.style.display = 'block';
+  document.getElementById('noSignal').style.display = 'none';
+  img.onerror = ()=>{ img.style.display='none'; document.getElementById('noSignal').style.display='flex'; };
+}
+
+// ---------- SENSOR POLL (thermal + smoke) ----------
+async function startSensorPoll(){
+  if(NODES.sensors.status!=='ok') return;
+  try{
+    const res = await fetch(`${baseUrl('sensors',NODES.sensors.port)}/sensors`, {cache:'no-store'});
+    const data = await res.json();
+    renderThermal(data.thermal);
+    renderSmoke(data.smoke);
+  }catch(e){ /* transient miss, keep polling */ }
+  setTimeout(startSensorPoll, 600);
+}
+
+function renderThermal(grid){
+  if(!grid || grid.length!==64) return;
+  const overlay = document.getElementById('thermalOverlay');
+  if(overlay.children.length!==64){
+    overlay.innerHTML='';
+    for(let i=0;i<64;i++) overlay.appendChild(document.createElement('div'));
+  }
+  const min=10, max=45;
+  let peak=-999;
+  grid.forEach((t,i)=>{
+    peak = Math.max(peak,t);
+    const pct = Math.max(0, Math.min(1,(t-min)/(max-min)));
+    overlay.children[i].style.background = thermalColor(pct);
+  });
+  document.getElementById('thermalPeak').textContent = peak.toFixed(1);
+  document.getElementById('thermalBar').style.width = Math.min(100,Math.max(0,((peak-min)/(max-min))*100))+'%';
+}
+function thermalColor(pct){
+  // blue -> cyan -> orange -> red ramp
+  const stops=[[0,10,40],[0,217,255],[255,106,26],[255,45,85]];
+  const seg = pct*(stops.length-1);
+  const i = Math.min(stops.length-2, Math.floor(seg));
+  const f = seg-i;
+  const c = stops[i].map((v,k)=> Math.round(v+(stops[i+1][k]-v)*f));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function renderSmoke(val){
+  if(val==null) return;
+  const g = document.getElementById('gaugeSmoke');
+  document.getElementById('smokeVal').textContent = val;
+  document.getElementById('smokeBar').style.width = Math.min(100,val)+'%';
+  g.className = 'gauge' + (val>80?' crit':val>50?' warn':'');
+}
+
+function toggleThermal(){
+  const o = document.getElementById('thermalOverlay');
+  const btn = document.getElementById('btnThermal');
+  const show = o.style.display==='none';
+  o.style.display = show?'grid':'none';
+  btn.classList.toggle('active', show);
+}
+
+// ---------- LINK SETUP MODAL ----------
+function openLinkModal(){ document.getElementById('linkModal').classList.add('open'); }
+function closeLinkModal(){ document.getElementById('linkModal').classList.remove('open'); }
+document.getElementById('linkModal').addEventListener('click', (e)=>{
+  if(e.target.id==='linkModal') closeLinkModal();
+});
+
+// ---------- JOYSTICK (reusable: drive uses x/y speed+turn, arm uses x/y base+elbow) ----------
+function setupStick(baseId, knobId, onMove, onRelease){
+  const base = document.getElementById(baseId);
+  const knob = document.getElementById(knobId);
+  let dragging=false, cx=0, cy=0, radius=0, half=0;
+  let lastSend=0;
+
+  function rectCenter(){
+    const r = base.getBoundingClientRect();
+    cx = r.left + r.width/2; cy = r.top + r.height/2;
+    half = r.width/2;
+    radius = half - (knob.offsetWidth/2 || 24) - 6;
+  }
+  function setKnob(x,y){
+    knob.style.left = (half+x*radius)+'px';
+    knob.style.top  = (half+y*radius)+'px';
+  }
+  function pointerPos(e){
+    const p = e.touches ? e.touches[0] : e;
+    return {x:p.clientX, y:p.clientY};
+  }
+  function handleMove(e){
+    if(!dragging) return;
+    e.preventDefault();
+    const p = pointerPos(e);
+    let dx = (p.x-cx)/radius, dy=(p.y-cy)/radius;
+    const mag = Math.hypot(dx,dy);
+    if(mag>1){ dx/=mag; dy/=mag; }
+    setKnob(dx,dy);
+    const now = Date.now();
+    const throttled = now-lastSend>80;
+    if(throttled) lastSend = now;
+    onMove(dx, -dy, throttled);
+  }
+  function reset(){
+    dragging=false;
+    knob.style.left='50%'; knob.style.top='50%';
+    if(onRelease) onRelease();
+  }
+  base.addEventListener('mousedown', e=>{ rectCenter(); dragging=true; handleMove(e); });
+  base.addEventListener('touchstart', e=>{ rectCenter(); dragging=true; handleMove(e); }, {passive:false});
+  window.addEventListener('mousemove', handleMove);
+  window.addEventListener('touchmove', handleMove, {passive:false});
+  window.addEventListener('mouseup', reset);
+  window.addEventListener('touchend', reset);
+  return { reset };
+}
+
+// DRIVE joystick: X = turn, Y = forward/back speed
+const driveStick = setupStick('driveStickBase','driveStickKnob',
+  (x,y,throttled)=>{
+    document.getElementById('driveX').textContent = x.toFixed(2);
+    document.getElementById('driveY').textContent = y.toFixed(2);
+    if(throttled) sendWs('drive', {x: parseFloat(x.toFixed(2)), y: parseFloat(y.toFixed(2))});
+  },
+  ()=>{
+    document.getElementById('driveX').textContent='0.00';
+    document.getElementById('driveY').textContent='0.00';
+    sendWs('drive', {x:0,y:0});
+  }
+);
+
+// ARM joystick: X = BASE rotate (turn), Y = ELBOW forward/back — moving the stick forward
+// drives the elbow servo forward exactly like pushing the drive stick forward drives the robot forward.
+function armJoystickAngles(x,y){
+  const base  = Math.max(0, Math.min(180, Math.round(90 + x*90)));
+  const elbow = Math.max(0, Math.min(180, Math.round(90 + y*90)));
+  return {base, elbow};
+}
+const armStick = setupStick('armStickBase','armStickKnob',
+  (x,y,throttled)=>{
+    const {base, elbow} = armJoystickAngles(x,y);
+    document.getElementById('armBaseVal').textContent = base+'\u00b0';
+    document.getElementById('armElbowVal').textContent = elbow+'\u00b0';
+    if(throttled){
+      sendWs('arm', {axis:'j1', value: base});
+      sendWs('arm', {axis:'j3', value: elbow});
+    }
+  },
+  ()=>{
+    document.getElementById('armBaseVal').textContent = '90\u00b0';
+    document.getElementById('armElbowVal').textContent = '90\u00b0';
+    sendWs('arm', {axis:'j1', value: 90});
+    sendWs('arm', {axis:'j3', value: 90});
+  }
+);
+
+// ---------- ARM + DRILL SLIDERS ----------
+document.querySelectorAll('.axis-row input[type=range]').forEach(input=>{
+  input.addEventListener('input', ()=>{
+    const axis = input.dataset.axis;
+    const val = parseInt(input.value,10);
+    const disp = input.parentElement.querySelector('.axis-val');
+    disp.textContent = axis==='drill' ? val+'%' : val;
+    sendWs('arm', {axis, value: val});
+  });
+});
+
+document.getElementById('estopBtn').addEventListener('click', ()=>{
+  document.querySelectorAll('.axis-row input[type=range]').forEach(input=>{
+    input.value = input.dataset.axis==='drill' ? 0 : 90;
+    input.dispatchEvent(new Event('input'));
+  });
+  armStick.reset();
+  sendWs('drive', {x:0,y:0});
+  sendWs('arm', {estop:true});
+  log('BLDC EMERGENCY STOP triggered — drill zeroed, arm returned to home');
+});
+
+// ---------- BOOT ----------
+window.addEventListener('load', ()=>{
+  ['drive','arm','cam','sensors'].forEach(n=>{
+    const cached = localStorage.getItem('aurix_'+n);
+    if(cached) document.getElementById('ip'+n.charAt(0).toUpperCase()+n.slice(1)).value = cached;
+  });
+  rediscoverAll();
+});
+</script>
+</body>
+</html>
