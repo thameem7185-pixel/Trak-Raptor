@@ -13,12 +13,27 @@ android {
         versionName "1.0"
     }
 
+    signingConfigs {
+        debug {
+            // Committed keystore so EVERY build (local or CI) is signed with the
+            // same certificate. Without this, GitHub Actions generates a fresh
+            // random debug keystore on every run, and Android refuses to install
+            // an update over an app signed with a different certificate â€” you'd
+            // have to uninstall the old APK before every single reinstall.
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
         }
         debug {
             debuggable true
+            signingConfig signingConfigs.debug
         }
     }
 
